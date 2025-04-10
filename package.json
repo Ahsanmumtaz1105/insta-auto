@@ -2,7 +2,13 @@
   "name": "insta",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:instagram": "playwright test instagram.spec.ts",
+    "test:instagram:headed": "playwright test instagram.spec.ts --headed",
+    "report": "playwright show-report"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

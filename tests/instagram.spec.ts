@@ -65,12 +65,16 @@ test("Instagram login and search", async ({ page }) => {
   }
 
   // Wait for search link to become visible
+  await page.waitForTimeout(3000); // Wait for the page to load
   await page
     .getByRole("link", { name: "Search Search" })
     .waitFor({ state: "visible" });
   await page.getByRole("link", { name: "Search Search" }).click();
+  await page.waitForTimeout(2000); // Wait for search page to load
   const searchText = process.env.SEARCH_TEXT || "tshirt";
   await page.getByRole("textbox", { name: "Search input" }).fill(searchText);
+  await page.getByRole("textbox", { name: "Search input" }).press("Enter");
+  await page.waitForTimeout(2000); // Wait for search results to load
 
   // Wait for search results to appear
   await page.waitForSelector('a[role="link"]');
@@ -84,4 +88,84 @@ test("Instagram login and search", async ({ page }) => {
       break;
     }
   }
+
+  // Wait for posts to load
+  await page.waitForSelector('section a[role="link"][href*="/p/"]');
+
+  // Get all post links
+  const postLinks = await page
+    .locator('section a[role="link"][href*="/p/"]')
+    .all();
+
+  // Click through each post link
+  for (let i = 0; i < postLinks.length; i++) {
+    try {
+      const postLink = postLinks[i];
+      // Get the href before clicking
+      const href = await postLink.getAttribute("href");
+      console.log(`Processing post: ${href}`);
+
+      if (i === 0) {
+        // Only click the first post
+        await postLink.click();
+        // Wait for the first post dialog to load
+        await page.waitForSelector('div[role="dialog"]', { timeout: 5000 });
+        await page
+          .getByRole("textbox", { name: "Add a comment…" })
+          .fill("Nice post!");
+        await page.keyboard.press("Enter"); // Submit the comment
+        await page.waitForTimeout(2000);
+      }
+
+      // Wait a moment to view the post
+      await page.waitForTimeout(2000);
+    } catch (error) {
+      console.log(`Error handling post: ${error.message}`);
+      continue; // Continue with next post if there's an error
+    }
+  }
+
+  for (let i = 0; i < parseInt(process.env.NO_OF_POSTS || "3", 10); i++) {
+    // For all posts except the last one, press arrow right to go to next post
+    await page.keyboard.press("ArrowRight");
+    // Wait for the next post to load
+    await page.waitForTimeout(1000);
+    await page
+      .getByRole("textbox", { name: "Add a comment…" })
+      .fill("Nice post!");
+    await page.keyboard.press("Enter"); // Submit the comment
+    await page.waitForTimeout(2000); // Wait for the next post to load
+  }
+
+  // After viewing all posts, close the dialog
+  await page.keyboard.press("Escape");
+  // Wait for dialog to close
+  await page.waitForSelector('div[role="dialog"]', {
+    state: "hidden",
+    timeout: 5000,
+  });
 });
+
+// Function to scroll and wait for new posts to load
+async function scrollAndWaitForPosts(page) {
+  // Scroll to bottom
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+  try {
+    // Wait for loading indicator to appear
+    await page
+      .getByRole("img", { name: "Loading..." })
+      .waitFor({ state: "visible", timeout: 3000 });
+
+    // Wait for loading indicator to disappear
+    await page
+      .getByRole("img", { name: "Loading..." })
+      .waitFor({ state: "hidden", timeout: 5000 });
+  } catch (e) {
+    // Loading indicator might not appear if all content is already loaded
+    console.log("No loading indicator found or content already loaded");
+  }
+
+  // Wait a moment for posts to render
+  await page.waitForTimeout(1000);
+}
